@@ -3,6 +3,19 @@ import led_engine
 from crontab import CronTab
 from neopixel import Color
 import os
+import re
+import json
+import urllib, urlparse
+
+def parse_url(url):
+	split_url = urlparse.urlsplit(url)
+	resource = split_url.path[1:]
+	params = dict(urlparse.parse_qsl(split_url.query))
+	return resource, params
+
+def create_url(resource, params):
+	path = "http://localhost:8080/"
+	return path + resource + "?" + urllib.urlencode(params)
 
 @cherrypy.expose
 class LedBrightness(object):
@@ -19,12 +32,45 @@ class LedBrightness(object):
 		self.lamp.setBrightness(int(value))
 		self.brightness = int(value)
 
+@cherrypy.expose
+class Schedule(object):
+	
+	def __init__(self):
+		self.cron = CronTab(user="pi")
+	
+	@cherrypy.tools.accept(media='text/plain')
+	def GET(self):
+		self.cron.read()
+		jobs_iter = self.cron.find_comment(re.compile(".*delite.*", re.IGNORECASE))
+		sched = []
+		for job in jobs_iter:
+			h, m = job.hour.render(), job.minute.render()
+			url = job.command.split("curl -d \"\" -X POST ")[-1]
+			_, name = job.comment.split("::")
+			command, params = parse_url(url)
+			sched.append({"name": name, "command": command, "params": params, "hour": h, "minute": m})
+		return json.dumps(sched)
+
+	def POST(self, name, command, params, hour, minute):
+		# TODO: process params from JSON
+		job = self.cron.new(comment="delite::%s" % (name))
+		job.set_command("curl -d \"\" -X POST %s" % create_url(command, params))
+		job.hour.on(hour)
+		job.minute.on(minute)
+		self.cron.write()
+
+	def PUT(self):
+		pass
+
+	def DELETE(self):
+		pass
+
 class LedServer(object):
-	#exposed = True
 
 	def __init__(self):
 		self.lamp = led_engine.LedEngine()
 		self.brightness = LedBrightness(self.lamp)
+		self.schedule = Schedule()
 
 	@cherrypy.expose
 	def index(self):
@@ -58,23 +104,22 @@ class LedServer(object):
 		self.lamp.setColor(int(r), int(g), int(b))
 		
 	@cherrypy.expose
-	def sunrise(self, minutes=10):
-		self.lamp.sunrise(int(minutes))
+	def sunrise(self, duration=10):
+		self.lamp.sunrise(int(duration))
 		
 	@cherrypy.expose
-	def sunset(self, minutes=10):
-		self.lamp.sunset(int(minutes))
+	def sunset(self, duration=10):
+		self.lamp.sunset(int(duration))
 		
 	@cherrypy.expose
 	def alarm(self, hour=7, minute=10, duration=10, method="sunrise"):
 		cron = CronTab(user="pi")
 		job = list(cron.find_command(method))
-		print job
 		if len(job) == 0:
 			job = cron.new(comment="LED lamp :: %s" % method.title())
 		else:
 			job = job[0]
-		job.set_command("curl -X GET http://localhost:8080/%s?minutes=%s" % (method, duration))
+		job.set_command("curl -X GET http://localhost:8080/%s?duration=%s" % (method, duration))
 		job.hour.on(hour)
 		job.minute.on(minute)
 		cron.write()
@@ -118,6 +163,12 @@ if __name__ == "__main__":
 			'tools.staticdir.dir' : 'static',
 		},
 		'/brightness':{
+			'request.dispatch': cherrypy.dispatch.MethodDispatcher(),
+            'tools.sessions.on': True,
+            'tools.response_headers.on': True,
+            'tools.response_headers.headers': [('Content-Type', 'text/plain')],
+		},
+		'/schedule':{
 			'request.dispatch': cherrypy.dispatch.MethodDispatcher(),
             'tools.sessions.on': True,
             'tools.response_headers.on': True,

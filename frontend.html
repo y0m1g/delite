@@ -17,8 +17,8 @@
   			<span class="ui-icon ui-icon-pencil" style="float:left; margin:-2px 5px 0 0;"></span>
 			Presets
 		</p>
-		<button id="turnon" class="ui-button ui-widget ui-corner-all">ON</button>
 		<button id="turnoff" class="ui-button ui-widget ui-corner-all">OFF</button>
+		<button id="turnon" class="ui-button ui-widget ui-corner-all">White</button>
 		<button id="sunset" class="ui-button ui-widget ui-corner-all">Sunset</button>
 		<button id="sunrise" class="ui-button ui-widget ui-corner-all">Sunrise</button>
 		
@@ -30,15 +30,32 @@
   			<!--input id="bright-value" type="text" readonly style="border:0;"-->
   			<div id="bright"></div>
 		</div>
-		
+
 		<p class="ui-state-default ui-corner-all ui-helper-clearfix" style="padding:4px;">
-  			<span class="ui-icon ui-icon-pencil" style="float:left; margin:-2px 5px 0 0;"></span>
-  			RGB Colors
+			<span class="ui-icon ui-icon-pencil" style="float:left; margin:-2px 5px 0 0;"></span>
+			Alarms
 		</p>
-		<div id="red"></div>
-		<div id="green"></div>
-		<div id="blue"></div>
-		<div id="swatch" class="ui-widget-content ui-corner-all"></div>
+		<table>
+			<th>
+				<td>State</td>
+				<td>Time</td>
+				<td>Remove</td>
+			</th>
+			<tr>
+				<td><button id="alarm_1_state" class="ui-button ui-widget ui-corner-all">ON</button></td>
+				<td><input id="alarm_1_time" type="text" readonly style="border:0;"></td>
+				<td><button id="alarm_1_remove" class="ui-button ui-widget ui-corner-all">Remove</button></td>
+			</tr>
+		</table>
+
+		<p class="ui-state-default ui-corner-all ui-helper-clearfix" style="padding:4px;">
+				<span class="ui-icon ui-icon-pencil" style="float:left; margin:-2px 5px 0 0;"></span>
+				RGB Colors
+		  </p>
+		  <div id="red"></div>
+		  <div id="green"></div>
+		  <div id="blue"></div>
+		  <div id="swatch" class="ui-widget-content ui-corner-all"></div>
 		
 	</body>
 </html>
