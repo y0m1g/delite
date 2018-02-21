@@ -51,16 +51,30 @@ class Schedule(object):
 			sched.append({"name": name, "command": command, "params": params, "hour": h, "minute": m})
 		return json.dumps(sched)
 
-	def POST(self, name, command, params, hour, minute):
-		# TODO: process params from JSON
-		job = self.cron.new(comment="delite::%s" % (name))
-		job.set_command("curl -d \"\" -X POST %s" % create_url(command, params))
-		job.hour.on(hour)
-		job.minute.on(minute)
+	@cherrypy.tools.accept(media='application/json')
+	def POST(self):
+		rawData = cherrypy.request.body.read(int(cherrypy.request.headers['Content-Length']))
+		data = json.loads(rawData)
+		job = self.cron.new(command="curl -d \"\" -X POST %s" % create_url(data["command"], data["params"]))
+		job.set_comment("delite::%s" % data["name"])
+		job.hour.on(data["hour"])
+		job.minute.on(data["minute"])
 		self.cron.write()
 
+	@cherrypy.tools.accept(media='application/json')
 	def PUT(self):
-		pass
+		rawData = cherrypy.request.body.read(int(cherrypy.request.headers['Content-Length']))
+		data = json.loads(rawData)
+		job = list(self.cron.find_comment("delite::" + data["name"]))
+		if len(job) == 0:
+			raise cherrypy.HTTPError(404, "Unknown job '%s'" % data["name"])
+		else:
+			job = job[0]
+			job.set_command("curl -d \"\" -X POST %s" % create_url(data["command"], data["params"]))
+			job.set_comment("delite::%s" % data["name"])
+			job.hour.on(data["hour"])
+			job.minute.on(data["minute"])
+			self.cron.write()
 
 	def DELETE(self):
 		pass
@@ -71,13 +85,9 @@ class LedServer(object):
 		self.lamp = led_engine.LedEngine()
 		self.brightness = LedBrightness(self.lamp)
 		self.schedule = Schedule()
-
-	@cherrypy.expose
-	def index(self):
-		return "Pouf!"
 		
 	@cherrypy.expose
-	def gui(self):
+	def index(self):
 		return open("frontend.html")
 
 	@cherrypy.expose
@@ -90,14 +100,6 @@ class LedServer(object):
 			self.lamp.gradient("red", "darkorange", 0.6)
 		elif value == "sunrise":
 			self.lamp.gradient("blue", "yellow", 0.6)
-						
-	@cherrypy.expose
-	def turnon(self):
-		self.lamp.turnOn()
-
-	@cherrypy.expose
-	def turnoff(self):
-		self.lamp.turnOff()
 		
 	@cherrypy.expose
 	def color(self, r, g, b):
@@ -110,19 +112,6 @@ class LedServer(object):
 	@cherrypy.expose
 	def sunset(self, duration=10):
 		self.lamp.sunset(int(duration))
-		
-	@cherrypy.expose
-	def alarm(self, hour=7, minute=10, duration=10, method="sunrise"):
-		cron = CronTab(user="pi")
-		job = list(cron.find_command(method))
-		if len(job) == 0:
-			job = cron.new(comment="LED lamp :: %s" % method.title())
-		else:
-			job = job[0]
-		job.set_command("curl -X GET http://localhost:8080/%s?duration=%s" % (method, duration))
-		job.hour.on(hour)
-		job.minute.on(minute)
-		cron.write()
 		
 	@cherrypy.expose
 	def gradient(self, color_center="yellow", color_grad="red", ratio=1.0):
@@ -139,10 +128,6 @@ class LedServer(object):
 	@cherrypy.expose
 	def wipe(self, r, g, b, wait_ms=50):
 		self.lamp.colorWipe(Color(int(r), int(g), int(b)), int(wait_ms))
-		
-	@cherrypy.expose
-	def bright(self, value):
-		self.lamp.setBrightness(int(value))
 		
 	@cherrypy.expose
 	def glow(self, iterations=5, wait_ms=5):
